@@ -93,3 +93,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn declarations_test() {
+    let mut input = PathBuf::new();
+    input.push("./example.l");
+    let mut declarations:HashMap<String, String> = HashMap::new();
+
+    parse_lex(&input, &mut declarations);
+
+    assert_eq!(declarations.get("delim"), Some(&r"[ \t]+".to_string()));
+    assert_eq!(declarations.get("ws"), Some(&r"{delim}+".to_string()));
+    assert_eq!(declarations.get("letter"), Some(&r"[A-Za-z]".to_string()));
+    assert_eq!(declarations.get("digit"), Some(&r"[0-9]".to_string()));
+    assert_eq!(declarations.get("ident"), Some(&r"{letter}({letter}|{digit})*".to_string()));
+    assert_eq!(declarations.get("number"), Some(&r"{digit}+(\.{digit}+)?(E[+\-]?{digit}+)?".to_string()));
+}

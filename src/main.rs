@@ -80,7 +80,7 @@ fn output(output: &PathBuf) {
 
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let opt = Opt::from_args();
     let input = opt.input_file;
 
@@ -90,8 +90,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:#?}", declarrations);
 
     output(&opt.output_file);
-
-    Ok(())
 }
 
 #[test]

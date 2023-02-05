@@ -1,10 +1,11 @@
 use std::fs::File;
-use std::io::{BufReader, BufRead, Write};
-use std::collections::HashMap;
+use std::io::Write;
 
 use std::path::PathBuf;
 use structopt::StructOpt;
 use indoc::indoc;
+
+use deva::lex_parser::LexParser;
 
 /// Welcome to deva!
 #[derive(StructOpt, Debug)]
@@ -17,44 +18,6 @@ struct Opt {
     /// output file
     #[structopt(name = "output", short ="o", long = "--output", parse(from_os_str))]
     output_file: PathBuf,
-}
-
-#[derive(Debug, PartialEq)]
-enum LexState {
-    Declarations,
-    TranslationRules,
-    Functions,
-}
-
-fn parse_lex(input: &PathBuf, decls: &mut HashMap<String, String>) {
-    let mut lex_state = LexState::Declarations;
-    let file = File::open(input).unwrap();
-    let reader = BufReader::new(file);
-
-    reader.lines()
-        .filter(|line| 
-            !line.as_ref().unwrap().trim().is_empty()
-        )
-        .for_each(|line| {
-            println!("lex state is {:#?}", lex_state);
-
-            let row = line.unwrap();
-            if row.trim() == "%%" {
-                match lex_state {
-                   LexState::Declarations => { lex_state = LexState::TranslationRules; }, 
-                   LexState::TranslationRules => { lex_state = LexState::Functions; }, 
-                   _ => panic!("lex state is invalid")
-                }
-                println!("change lex status {}", row);
-            } else if lex_state == LexState::Declarations {
-                let mut iter = row.split_whitespace();
-                let key = iter.next().unwrap().to_string();
-                let value = iter.collect::<Vec<_>>().join(" ");
-
-                decls.insert(key, value);
-            }
-        });
-
 }
 
 fn output(output: &PathBuf) {
@@ -83,27 +46,10 @@ fn output(output: &PathBuf) {
 fn main() {
     let opt = Opt::from_args();
     let input = opt.input_file;
+    let mut lex_parser = LexParser::new(input);
 
-    let mut declarrations: HashMap<String, String> = HashMap::new();
-
-    parse_lex(&input, &mut declarrations);
-    println!("{:#?}", declarrations);
+    lex_parser.exec();
+    println!("{:#?}", lex_parser.declarations);
 
     output(&opt.output_file);
-}
-
-#[test]
-fn declarations_test() {
-    let mut input = PathBuf::new();
-    input.push("./example.l");
-    let mut declarations:HashMap<String, String> = HashMap::new();
-
-    parse_lex(&input, &mut declarations);
-
-    assert_eq!(declarations.get("delim"), Some(&r"[ \t]+".to_string()));
-    assert_eq!(declarations.get("ws"), Some(&r"{delim}+".to_string()));
-    assert_eq!(declarations.get("letter"), Some(&r"[A-Za-z]".to_string()));
-    assert_eq!(declarations.get("digit"), Some(&r"[0-9]".to_string()));
-    assert_eq!(declarations.get("ident"), Some(&r"{letter}({letter}|{digit})*".to_string()));
-    assert_eq!(declarations.get("number"), Some(&r"{digit}+(\.{digit}+)?(E[+\-]?{digit}+)?".to_string()));
 }

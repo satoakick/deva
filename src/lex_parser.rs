@@ -90,13 +90,14 @@ impl LexParser {
 
 
 mod tests {
+    use super::*;
 
     #[test]
     fn declarations_test() {
         let mut input = super::PathBuf::new();
         input.push("./example.l");
 
-        let mut parser = super::LexParser::new(input);
+        let mut parser = LexParser::new(input);
 
         parser.exec();
 
@@ -111,7 +112,7 @@ mod tests {
     #[test]
     fn extract_curly_brackets_test() {
         let target = "{1}test{foo}aaa{bar}";
-        let result = super::LexParser::extract_declarations_from_curly_brackets(target);
+        let result = LexParser::extract_declarations_from_curly_brackets(target);
 
         assert_eq!(result, ["1".to_string(),
                             "foo".to_string(),
@@ -120,14 +121,19 @@ mod tests {
     }
 
     #[test]
+    fn extract_curly_brackets_empty_test() {
+        assert_eq!(LexParser::extract_declarations_from_curly_brackets("abc"), Vec::<String>::new());
+    }
+
+    #[test]
     #[should_panic(expected = "invalid parse: duplicate :{")]
     fn extract_curly_brackets_duplicate_error_test() {
-        super::LexParser::extract_declarations_from_curly_brackets("{{1}");
+        LexParser::extract_declarations_from_curly_brackets("{{1}");
     }
 
     #[test]
     #[should_panic(expected = "invalid parse: duplicate :}")]
     fn extract_curly_brackets_duplicate_error_test_2() {
-        super::LexParser::extract_declarations_from_curly_brackets("{1}}");
+        LexParser::extract_declarations_from_curly_brackets("{1}}");
     }
 }

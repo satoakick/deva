@@ -5,7 +5,9 @@ enum LexState {
     Declarations,
     TranslationRules,
     Functions,
+    Finish,
 }
+
 pub struct LexParser {
     input: PathBuf,
     parser_state: LexState,
@@ -46,6 +48,43 @@ impl LexParser {
                     self.declarations.insert(key, value);
                 }
             });
+        self.parser_state = LexState::Finish;
+    }
+
+    fn is_parse_finish(&self) -> bool {
+        return self.parser_state == LexState::Finish;
+    }
+
+    fn extract_declarations_from_curly_brackets(target: &str) -> Vec<String> {
+        let mut extracted: Vec<String> = vec![];
+        let mut is_in_bracket = false;
+
+        target.chars().for_each(|c| {
+            match c {
+                '{' => {
+                    if is_in_bracket {
+                        panic!("invalid parse: duplicate :{{");
+                    }
+                    is_in_bracket = true;
+                    extracted.push(String::new());
+                },
+                '}' => {
+                    if !is_in_bracket {
+                        panic!("invalid parse: duplicate :}}");
+                    }
+                    is_in_bracket = false;
+                },
+                _ => {
+                    if is_in_bracket {
+                        match extracted.last_mut() {
+                            None                    => extracted.push(c.to_string()),
+                            Some(item) => item.push(c),
+                        }
+                    }
+                }
+            }
+        });
+        return extracted;
     }
 }
 
@@ -67,5 +106,28 @@ mod tests {
         assert_eq!(parser.declarations.get("digit"), Some(&r"[0-9]".to_string()));
         assert_eq!(parser.declarations.get("ident"), Some(&r"{letter}({letter}|{digit})*".to_string()));
         assert_eq!(parser.declarations.get("number"), Some(&r"{digit}+(\.{digit}+)?(E[+\-]?{digit}+)?".to_string()));
+    }
+
+    #[test]
+    fn extract_curly_brackets_test() {
+        let target = "{1}test{foo}aaa{bar}";
+        let result = super::LexParser::extract_declarations_from_curly_brackets(target);
+
+        assert_eq!(result, ["1".to_string(),
+                            "foo".to_string(),
+                            "bar".to_string()]);
+
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid parse: duplicate :{")]
+    fn extract_curly_brackets_duplicate_error_test() {
+        super::LexParser::extract_declarations_from_curly_brackets("{{1}");
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid parse: duplicate :}")]
+    fn extract_curly_brackets_duplicate_error_test_2() {
+        super::LexParser::extract_declarations_from_curly_brackets("{1}}");
     }
 }

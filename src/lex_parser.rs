@@ -67,6 +67,14 @@ impl LexParser {
         return self.parser_state == LexState::Finish;
     }
 
+    /// Resolves reference in declarations.
+    ///
+    /// For example, if target key is 'bar' and declarations { foo: 1, bar: {foo} },
+    /// this function will resolves as '1' for 'bar'.
+    /// * key: target key
+    /// * resolved: resolved value
+    /// * decl_map: declarations which is not resolved
+    ///
     fn resolve_reference(key: &String, resolved: &mut String, decl_map: &HashMap<String, String>) {
         // TODO: Impl memorize
         // if memo.contains(key) { resolved.push_str(memo.get(key).unwrap()); return; }

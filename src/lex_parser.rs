@@ -51,7 +51,7 @@ impl LexParser {
                     // With the assumption that the value which should be resolved exist,
                     // try to resolve reference declarations.
                     let mut resolved = String::new();
-                    Self::resolve_referece(&cloned_key, &mut resolved, &self.declarations);
+                    Self::resolve_reference(&cloned_key, &mut resolved, &self.declarations);
                     self.declarations.entry(cloned_key.to_string())
                                      .and_modify(|v| *v = resolved);
 
@@ -67,7 +67,7 @@ impl LexParser {
         return self.parser_state == LexState::Finish;
     }
 
-    fn resolve_referece(key: &String, resolved: &mut String, decl_map: &HashMap<String, String>) {
+    fn resolve_reference(key: &String, resolved: &mut String, decl_map: &HashMap<String, String>) {
         // TODO: Impl memorize
         // if memo.contains(key) { resolved.push_str(memo.get(key).unwrap()); return; }
 
@@ -96,7 +96,7 @@ impl LexParser {
                                     panic!("invalid parse: duplicate :}}");
                                 }
                                 is_in_bracket = false;
-                                Self::resolve_referece(&tmp_key, resolved, decl_map);
+                                Self::resolve_reference(&tmp_key, resolved, decl_map);
                             },
                             _ => {
                                 if is_in_bracket {
@@ -145,7 +145,7 @@ mod tests {
         decl_map.insert("a".to_string(), "{b}foo{b}".to_string());
         let mut resolved = String::new();
 
-        LexParser::resolve_referece(&"a".to_string(), &mut resolved, &decl_map);
+        LexParser::resolve_reference(&"a".to_string(), &mut resolved, &decl_map);
 
         assert_eq!(resolved, "bar3foobar3".to_string());
     }
@@ -155,7 +155,7 @@ mod tests {
         let mut decl_map = HashMap::new();
         decl_map.insert("a".to_string(), "{b}foo{b}".to_string());
         let mut resolved = String::new();
-        LexParser::resolve_referece(&"hoge".to_string(), &mut resolved, &decl_map);
+        LexParser::resolve_reference(&"hoge".to_string(), &mut resolved, &decl_map);
         assert_eq!(resolved, "".to_string());
     }
 
@@ -165,7 +165,7 @@ mod tests {
         let mut decl_map = HashMap::new();
         decl_map.insert("a".to_string(), "{{b}".to_string());
         let mut resolved = String::new();
-        LexParser::resolve_referece(&"a".to_string(), &mut resolved, &decl_map);
+        LexParser::resolve_reference(&"a".to_string(), &mut resolved, &decl_map);
     }
 
     #[test]
@@ -175,7 +175,7 @@ mod tests {
         decl_map.insert("a".to_string(), "{b}}".to_string());
         let mut resolved = String::new();
 
-        LexParser::resolve_referece(&"a".to_string(), &mut resolved, &decl_map);
+        LexParser::resolve_reference(&"a".to_string(), &mut resolved, &decl_map);
     }
 
 }

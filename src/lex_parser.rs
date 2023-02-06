@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, fs::File, io::{BufReader, BufRead}};
+use std::{collections::HashMap, path::PathBuf, fs::File, io::{BufReader, BufRead}, };
 
 #[derive(Debug, PartialEq)]
 enum LexState {
@@ -45,9 +45,21 @@ impl LexParser {
                     let key = iter.next().unwrap().to_string();
                     let value = iter.collect::<Vec<_>>().join(" ");
 
+                    let cloned_key = &key.clone();
                     self.declarations.insert(key, value);
+
+                    // With the assumption that the value which should be resolved exist,
+                    // try to resolve reference declarations.
+                    let mut resolved = String::new();
+                    Self::resolve_referece(&cloned_key, &mut resolved, &self.declarations);
+                    self.declarations.entry(cloned_key.to_string())
+                                     .and_modify(|v| *v = resolved);
+
                 }
             });
+
+        println!("declarations {:?}", self.declarations);
+
         self.parser_state = LexState::Finish;
     }
 
@@ -55,36 +67,50 @@ impl LexParser {
         return self.parser_state == LexState::Finish;
     }
 
-    fn extract_declarations_from_curly_brackets(target: &str) -> Vec<String> {
-        let mut extracted: Vec<String> = vec![];
-        let mut is_in_bracket = false;
+    fn resolve_referece(key: &String, resolved: &mut String, decl_map: &HashMap<String, String>) {
+        // TODO: Impl memorize
+        // if memo.contains(key) { resolved.push_str(memo.get(key).unwrap()); return; }
 
-        target.chars().for_each(|c| {
-            match c {
-                '{' => {
-                    if is_in_bracket {
-                        panic!("invalid parse: duplicate :{{");
-                    }
-                    is_in_bracket = true;
-                    extracted.push(String::new());
-                },
-                '}' => {
-                    if !is_in_bracket {
-                        panic!("invalid parse: duplicate :}}");
-                    }
-                    is_in_bracket = false;
-                },
-                _ => {
-                    if is_in_bracket {
-                        match extracted.last_mut() {
-                            None                    => extracted.push(c.to_string()),
-                            Some(item) => item.push(c),
+        match decl_map.get(key) {
+            Some(value) => {
+                if !value.contains("{") || !value.contains("}") {
+                    resolved.push_str(&value);
+                    // TODO: Impl memorize
+                    // memo.insert(value);
+                    return;
+                } else {
+                    let mut is_in_bracket = false;
+
+                    let mut tmp_key = String::new();
+                    value.chars().for_each(|c| {
+                        match c {
+                            '{' => {
+                                if is_in_bracket {
+                                    panic!("invalid parse: duplicate :{{");
+                                }
+                                is_in_bracket = true;
+                                tmp_key.clear();
+                            },
+                            '}' => {
+                                if !is_in_bracket {
+                                    panic!("invalid parse: duplicate :}}");
+                                }
+                                is_in_bracket = false;
+                                Self::resolve_referece(&tmp_key, resolved, decl_map);
+                            },
+                            _ => {
+                                if is_in_bracket {
+                                    tmp_key.push(c);
+                                } else {
+                                    resolved.push(c);
+                                }
+                            }
                         }
-                    }
+                    });
                 }
-            }
-        });
-        return extracted;
+            },
+            None => (),
+        }
     }
 }
 
@@ -102,38 +128,54 @@ mod tests {
         parser.exec();
 
         assert_eq!(parser.declarations.get("delim"), Some(&r"[ \t]+".to_string()));
-        assert_eq!(parser.declarations.get("ws"), Some(&r"{delim}+".to_string()));
+        assert_eq!(parser.declarations.get("ws"), Some(&r"[ \t]++".to_string()));
         assert_eq!(parser.declarations.get("letter"), Some(&r"[A-Za-z]".to_string()));
         assert_eq!(parser.declarations.get("digit"), Some(&r"[0-9]".to_string()));
-        assert_eq!(parser.declarations.get("ident"), Some(&r"{letter}({letter}|{digit})*".to_string()));
-        assert_eq!(parser.declarations.get("number"), Some(&r"{digit}+(\.{digit}+)?(E[+\-]?{digit}+)?".to_string()));
+        assert_eq!(parser.declarations.get("ident"), Some(&r"[A-Za-z]([A-Za-z]|[0-9])*".to_string()));
+        assert_eq!(parser.declarations.get("number"), Some(&r"[0-9]+(\.[0-9]+)?(E[+\-]?[0-9]+)?".to_string()));
     }
 
     #[test]
-    fn extract_curly_brackets_test() {
-        let target = "{1}test{foo}aaa{bar}";
-        let result = LexParser::extract_declarations_from_curly_brackets(target);
+    fn resolve_reference_test() {
+        let mut decl_map = HashMap::new();
+        decl_map.insert("2".to_string(), "3".to_string());
+        decl_map.insert("1".to_string(), "{2}".to_string());
+        decl_map.insert("c".to_string(), "bar".to_string());
+        decl_map.insert("b".to_string(), "{c}{1}".to_string());
+        decl_map.insert("a".to_string(), "{b}foo{b}".to_string());
+        let mut resolved = String::new();
 
-        assert_eq!(result, ["1".to_string(),
-                            "foo".to_string(),
-                            "bar".to_string()]);
+        LexParser::resolve_referece(&"a".to_string(), &mut resolved, &decl_map);
 
+        assert_eq!(resolved, "bar3foobar3".to_string());
     }
 
     #[test]
     fn extract_curly_brackets_empty_test() {
-        assert_eq!(LexParser::extract_declarations_from_curly_brackets("abc"), Vec::<String>::new());
+        let mut decl_map = HashMap::new();
+        decl_map.insert("a".to_string(), "{b}foo{b}".to_string());
+        let mut resolved = String::new();
+        LexParser::resolve_referece(&"hoge".to_string(), &mut resolved, &decl_map);
+        assert_eq!(resolved, "".to_string());
     }
 
     #[test]
     #[should_panic(expected = "invalid parse: duplicate :{")]
     fn extract_curly_brackets_duplicate_error_test() {
-        LexParser::extract_declarations_from_curly_brackets("{{1}");
+        let mut decl_map = HashMap::new();
+        decl_map.insert("a".to_string(), "{{b}".to_string());
+        let mut resolved = String::new();
+        LexParser::resolve_referece(&"a".to_string(), &mut resolved, &decl_map);
     }
 
     #[test]
     #[should_panic(expected = "invalid parse: duplicate :}")]
     fn extract_curly_brackets_duplicate_error_test_2() {
-        LexParser::extract_declarations_from_curly_brackets("{1}}");
+        let mut decl_map = HashMap::new();
+        decl_map.insert("a".to_string(), "{b}}".to_string());
+        let mut resolved = String::new();
+
+        LexParser::resolve_referece(&"a".to_string(), &mut resolved, &decl_map);
     }
+
 }

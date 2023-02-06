@@ -1,14 +1,10 @@
-%{
-#define YY_SKIP_YYWRAP
-int yywrap(void) { return 1; }
-%}
 
 delim [ \t]+
 ws    {delim}+
 
 letter [A-Za-z]
 digit  [0-9]
-                      
+
 ident  {letter}({letter}|{digit})*
 
 number {digit}+(\.{digit}+)?(E[+\-]?{digit}+)?
